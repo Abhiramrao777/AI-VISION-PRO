@@ -5,6 +5,8 @@ import 'package:vibration/vibration.dart';
 class VibrationProvider extends ChangeNotifier {
   bool _isVibrationEnabled = true;
   bool _hasVibrator = false;
+  bool _hasCustomVibrations = false;
+  bool _hasAmplitudeControl = false;
   String? _error;
 
   // Getters
@@ -17,6 +19,10 @@ class VibrationProvider extends ChangeNotifier {
   Future<void> initialize() async {
     try {
       _hasVibrator = await Vibration.hasVibrator();
+      if (_hasVibrator) {
+        _hasCustomVibrations = await Vibration.hasCustomVibrationsSupport();
+        _hasAmplitudeControl = await Vibration.hasAmplitudeControl();
+      }
       _error = null;
       notifyListeners();
     } catch (e) {
@@ -36,29 +42,37 @@ class VibrationProvider extends ChangeNotifier {
         if (area > 100000) {
           // Extremely close: Continuous pulse
           await Vibration.cancel();
-          await Vibration.vibrate(pattern: [0, 500, 50, 500], intensities: [0, 255, 0, 255], repeat: 0);
-          Future.delayed(const Duration(milliseconds: 600), () => Vibration.cancel());
+          if (_hasCustomVibrations && _hasAmplitudeControl) {
+            await Vibration.vibrate(pattern: [0, 500, 50, 500], intensities: [0, 255, 0, 255]);
+          } else {
+            await Vibration.vibrate(duration: 1000); // Standard fallback
+          }
+          Future.delayed(const Duration(milliseconds: 1000), () => Vibration.cancel());
         } else if (area > 30000) {
           // Medium distance: Steady double pulse
-          await Vibration.vibrate(pattern: [0, 150, 100, 150], intensities: [0, 180, 0, 180]);
+          if (_hasCustomVibrations) {
+            await Vibration.vibrate(pattern: [0, 150, 100, 150]);
+          } else {
+            await Vibration.vibrate(duration: 300);
+          }
         } else {
           // Far: Light single tap
-          await Vibration.vibrate(duration: 50, amplitude: 100);
+          await Vibration.vibrate(duration: 50);
         }
         return;
       }
 
       // Fallback to priority/location based logic if area is not provided
       if (isPriority) {
-        if (spatialLocation.contains('left')) {
-          await Vibration.vibrate(pattern: [0, 100, 50, 100], intensities: [0, 255, 0, 100]);
-        } else if (spatialLocation.contains('right')) {
-          await Vibration.vibrate(pattern: [0, 50, 50, 200], intensities: [0, 100, 0, 255]);
+        if (spatialLocation.contains('left') && _hasCustomVibrations) {
+          await Vibration.vibrate(pattern: [0, 100, 50, 100]);
+        } else if (spatialLocation.contains('right') && _hasCustomVibrations) {
+          await Vibration.vibrate(pattern: [0, 50, 50, 200]);
         } else {
-          await Vibration.vibrate(duration: 200, amplitude: 255);
+          await Vibration.vibrate(duration: 200);
         }
       } else {
-        await Vibration.vibrate(duration: 50, amplitude: 128);
+        await Vibration.vibrate(duration: 50);
       }
     } catch (e) {
       debugPrint('Vibration error: $e');
@@ -68,10 +82,12 @@ class VibrationProvider extends ChangeNotifier {
   /// Vibrate for a clear path (positive feedback)
   Future<void> vibrateForClearPath() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
-    
     try {
-      // Gentle double tap
-      await Vibration.vibrate(pattern: [0, 50, 50, 50], intensities: [0, 80, 0, 80]);
+      if (_hasCustomVibrations) {
+        await Vibration.vibrate(pattern: [0, 50, 50, 50]);
+      } else {
+        await Vibration.vibrate(duration: 100);
+      }
     } catch (e) {
       debugPrint('Clear path vibration error: $e');
     }
@@ -80,19 +96,12 @@ class VibrationProvider extends ChangeNotifier {
   /// Vibrate for obstacle warning (critical)
   Future<void> vibrateForWarning() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
-    
     try {
-      // Pattern: strong-strong pause strong-strong
-      await Vibration.vibrate(
-        pattern: [0, 200, 100, 200, 200, 200],
-        intensities: [255, 255, 0, 255, 255, 255],
-        repeat: -1,
-      );
-      
-      // Stop after 1 second
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        Vibration.cancel();
-      });
+      if (_hasCustomVibrations) {
+        await Vibration.vibrate(pattern: [0, 200, 100, 200, 200, 200]);
+      } else {
+        await Vibration.vibrate(duration: 800);
+      }
     } catch (e) {
       debugPrint('Warning vibration error: $e');
     }
@@ -101,12 +110,8 @@ class VibrationProvider extends ChangeNotifier {
   /// Vibrate for button press feedback
   Future<void> vibrateForButtonPress() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
-    
     try {
-      await Vibration.vibrate(
-        duration: 30,
-        amplitude: 100,
-      );
+      await Vibration.vibrate(duration: 30);
     } catch (e) {
       debugPrint('Button vibration error: $e');
     }
@@ -115,19 +120,12 @@ class VibrationProvider extends ChangeNotifier {
   /// Vibrate for emergency alert
   Future<void> vibrateForEmergency() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
-    
     try {
-      // Continuous strong vibration
-      await Vibration.vibrate(
-        pattern: [0, 500, 200, 500],
-        intensities: [255, 255, 0, 255],
-        repeat: 0,
-      );
-      
-      // Stop after 3 seconds
-      Future.delayed(const Duration(seconds: 3), () {
-        Vibration.cancel();
-      });
+      if (_hasCustomVibrations) {
+        await Vibration.vibrate(pattern: [0, 500, 200, 500]);
+      } else {
+        await Vibration.vibrate(duration: 2000);
+      }
     } catch (e) {
       debugPrint('Emergency vibration error: $e');
     }
@@ -142,21 +140,8 @@ class VibrationProvider extends ChangeNotifier {
     }
   }
 
-  /// Toggle vibration
   void toggleVibration() {
     _isVibrationEnabled = !_isVibrationEnabled;
-    notifyListeners();
-  }
-
-  /// Enable vibration
-  void enableVibration() {
-    _isVibrationEnabled = true;
-    notifyListeners();
-  }
-
-  /// Disable vibration
-  void disableVibration() {
-    _isVibrationEnabled = false;
     notifyListeners();
   }
 
@@ -166,7 +151,6 @@ class VibrationProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Clear error
   void clearError() {
     _error = null;
     notifyListeners();

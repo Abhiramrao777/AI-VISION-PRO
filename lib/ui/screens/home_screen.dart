@@ -33,6 +33,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _hasCameraPermission = await PermissionService().hasCameraPermission();
     await PermissionService().hasMicrophonePermission();
     setState(() => _isLoading = false);
+
+    // Auto-initialize services if permissions are already granted from a
+    // previous session. Without this, TTS/vibration/voice stay uninitialized
+    // on app restart and the first few detection announcements are lost.
+    if (_hasCameraPermission) {
+      _initializeServices();
+    }
   }
 
   Future<void> _requestPermissions() async {
@@ -296,9 +303,34 @@ class _HomeScreenState extends State<HomeScreen> {
     final ttsProvider = context.read<TTSProvider>();
     
     if (!cameraProvider.isInitialized) await cameraProvider.initializeCamera();
-    
-    detectionProvider.onSpeakText = (text) { ttsProvider.speak(text, interrupt: false); };
-    cameraProvider.onImageAvailable = (image) { 
+
+    // Wire vibration directly to the detection stream so it always fires
+    // regardless of whether TTS speaks (avoids double-callback overwrite issues).
+    // This is the SOLE place vibration is triggered — camera_preview_screen
+    // only handles TTS to avoid duplicate wiring.
+    detectionProvider.onNewDetection = (detections) {
+      if (detections.isEmpty) return;
+      final vibProvider = context.read<VibrationProvider>();
+      final accessProvider = context.read<AccessibilityProvider>();
+      if (!vibProvider.isVibrationEnabled || !accessProvider.isHapticFeedbackEnabled) return;
+      final first = detections.first;
+      final area = first.boundingBox != null
+          ? first.boundingBox!.width * first.boundingBox!.height
+          : null;
+      final isPriority = detectionProvider.getObstaclePriority(first.label) == ObstaclePriority.critical;
+      vibProvider.vibrateForObject(
+        isPriority: isPriority,
+        spatialLocation: first.spatialLocation,
+        area: area,
+      );
+    };
+
+    // TTS-only callback for speech (no vibration override here)
+    detectionProvider.onSpeakText = (text) {
+      ttsProvider.speak(text, interrupt: false);
+    };
+
+    cameraProvider.onImageAvailable = (image) {
       if (!detectionProvider.isProcessing) {
         detectionProvider.processImage(image);
       }

@@ -1,81 +1,35 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
-
-class NvidiaAIService {
-  static const String _apiKey = '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';
-  static const String _baseUrl = 'https://integrate.api.nvidia.com/v1';
-  static const String _visionModel = 'nvidia/nemotron-4-340b-v1-vl';
-
-  /// Analyzes an image file using NVIDIA NIM Vision-Language model
-  Future<String> analyzeImage(File imageFile, {String prompt = 'Describe the objects and spatial layout in this scene for a blind person.'}) async {
-    try {
-      final bytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      
-      final response = await http.post(
-        Uri.parse('$_baseUrl/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': _visionModel,
-          'messages': [
-            {
-              'role': 'user',
-              'content': [
-                {'type': 'text', 'text': prompt},
-                {
-                  'type': 'image_url',
-                  'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
-                }
-              ]
-            }
-          ],
-          'max_tokens': 1024,
-          'temperature': 0.7,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'] ?? 'No analysis available.';
-      } else {
-        debugPrint('NVIDIA API Error: ${response.statusCode} - ${response.body}');
-        return 'I encountered an error connecting to the NVIDIA brain. Error code: ${response.statusCode}';
-      }
-    } catch (e) {
-      debugPrint('NVIDIA Service Exception: $e');
-      return 'Failed to analyze scene: $e';
+/// On-device scene description service.
+///
+/// All AI processing happens locally on the device — no cloud API calls,
+/// no internet required. Scene descriptions are built from ML Kit detections.
+class OnDeviceAIService {
+  /// Build a natural-language scene description from the current detections.
+  ///
+  /// This replaces the previous cloud-based NVIDIA API call with a purely
+  /// on-device summary assembled from ML Kit object-detection and image-
+  /// labeling results, keeping all data private and latency minimal.
+  String describeScene(List<String> detectedLabels) {
+    if (detectedLabels.isEmpty) {
+      return 'I cannot identify any objects right now. Try pointing the camera in a different direction.';
     }
-  }
 
-  /// Chat with NVIDIA NIM for general reasoning
-  Future<String> chat(String prompt) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'nvidia/nemotron-3-super-120b-a12b',
-          'messages': [
-            {'role': 'user', 'content': prompt}
-          ],
-        }),
-      );
+    final buffer = StringBuffer('I can see ');
+    final unique = detectedLabels.toSet().toList();
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'] ?? '';
+    if (unique.length == 1) {
+      buffer.write('${unique.first}.');
+    } else if (unique.length == 2) {
+      buffer.write('${unique[0]} and ${unique[1]}.');
+    } else {
+      for (int i = 0; i < unique.length; i++) {
+        if (i == unique.length - 1) {
+          buffer.write('and ${unique[i]}.');
+        } else {
+          buffer.write('${unique[i]}, ');
+        }
       }
-      return '';
-    } catch (e) {
-      return 'Chat error: $e';
     }
+
+    return buffer.toString();
   }
 }

@@ -27,26 +27,12 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
   void _setupDetectionCallback() {
     final detectionProvider = context.read<DetectionProvider>();
     final ttsProvider = context.read<TTSProvider>();
-    final vibrationProvider = context.read<VibrationProvider>();
     
+    // TTS-only callback — vibration is handled separately via onNewDetection
+    // (set in home_screen._startScanning) to avoid duplicate wiring.
     detectionProvider.onSpeakText = (text) async {
       if (context.read<AccessibilityProvider>().isVoiceGuidanceEnabled) {
         await ttsProvider.speak(text, interrupt: false);
-        
-        if (detectionProvider.currentDetections.isNotEmpty && context.read<AccessibilityProvider>().isHapticFeedbackEnabled) {
-          final firstObj = detectionProvider.currentDetections.first;
-          final area = firstObj.boundingBox != null 
-              ? firstObj.boundingBox!.width * firstObj.boundingBox!.height 
-              : 0.0;
-              
-          final isPriority = detectionProvider.getObstaclePriority(firstObj.label) == ObstaclePriority.critical;
-          
-          vibrationProvider.vibrateForObject(
-            isPriority: isPriority, 
-            spatialLocation: firstObj.spatialLocation,
-            area: area,
-          );
-        }
       }
     };
   }
@@ -90,7 +76,15 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
       body: Stack(
         children: [
           Positioned.fill(child: CameraPreview(cameraProvider.controller!)),
-          Positioned.fill(child: CustomPaint(painter: DetectionOverlayPainter(detections: detectionProvider.currentDetections))),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: DetectionOverlayPainter(
+                detections: detectionProvider.currentDetections,
+                imageWidth: detectionProvider.lastImageWidth.toDouble(),
+                imageHeight: detectionProvider.lastImageHeight.toDouble(),
+              ),
+            ),
+          ),
           
           Positioned(top: 0, left: 0, right: 0, child: _buildTopGlassBar(accessibilityProvider, detectionProvider)),
           Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomGlassControls()),
@@ -158,7 +152,7 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
               _buildControlIcon(
                 Icons.visibility, 
                 'Describe', 
-                () => context.read<DetectionProvider>().describeSurroundings(useAdvancedAI: true), 
+                () => context.read<DetectionProvider>().describeSurroundings(), 
                 isLarge: true
               ),
               _buildControlIcon(Icons.flash_on, 'Flash', () => context.read<CameraProvider>().toggleFlash()),
@@ -214,7 +208,10 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(d.label.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    Expanded(
+                      child: Text(d.label.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: 8),
                     Text('${(d.confidence * 100).toInt()}%', style: const TextStyle(color: Colors.white70)),
                   ],
                 ),
@@ -233,32 +230,71 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
   }
 }
 
+/// Paints bounding boxes from ML Kit Object Detection onto the camera preview.
+///
+/// ML Kit returns bounding boxes in absolute pixel coordinates relative to the
+/// camera image size. We scale those to screen coordinates using the ratio of
+/// screen size to camera image size.
 class DetectionOverlayPainter extends CustomPainter {
   final List<AppDetectedObject> detections;
-  DetectionOverlayPainter({required this.detections});
+  final double imageWidth;
+  final double imageHeight;
+
+  DetectionOverlayPainter({
+    required this.detections,
+    required this.imageWidth,
+    required this.imageHeight,
+  });
   
   @override
   void paint(Canvas canvas, Size size) {
+    if (imageWidth <= 0 || imageHeight <= 0) return;
+
+    // Scale factors: map from camera-image coordinates → screen coordinates
+    final double scaleX = size.width / imageWidth;
+    final double scaleY = size.height / imageHeight;
+
     final boxPaint = Paint()..color = Colors.blueAccent.withValues(alpha: 0.6)..strokeWidth = 3.0..style = PaintingStyle.stroke;
     final fillPaint = Paint()..color = Colors.blueAccent.withValues(alpha: 0.1)..style = PaintingStyle.fill;
+    final labelBgPaint = Paint()..color = Colors.blueAccent.withValues(alpha: 0.7)..style = PaintingStyle.fill;
     
     for (final detection in detections) {
       if (detection.boundingBox != null) {
         final rect = Rect.fromLTWH(
-          detection.boundingBox!.left * size.width,
-          detection.boundingBox!.top * size.height,
-          detection.boundingBox!.width * size.width,
-          detection.boundingBox!.height * size.height,
+          detection.boundingBox!.left * scaleX,
+          detection.boundingBox!.top * scaleY,
+          detection.boundingBox!.width * scaleX,
+          detection.boundingBox!.height * scaleY,
         );
         
-        // Rounded Glowing Bounding Boxes
+        // Rounded glowing bounding boxes
         final rRect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
         canvas.drawRRect(rRect, fillPaint);
         canvas.drawRRect(rRect, boxPaint);
+
+        // Draw label text above the bounding box
+        final labelText = '${detection.label} ${(detection.confidence * 100).toInt()}%';
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: labelText,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        final labelRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(rect.left, rect.top - 22, textPainter.width + 12, 20),
+          const Radius.circular(6),
+        );
+        canvas.drawRRect(labelRect, labelBgPaint);
+        textPainter.paint(canvas, Offset(rect.left + 6, rect.top - 20));
       }
     }
   }
   
   @override
-  bool shouldRepaint(covariant DetectionOverlayPainter oldDelegate) => oldDelegate.detections != detections;
+  bool shouldRepaint(covariant DetectionOverlayPainter oldDelegate) =>
+      oldDelegate.detections != detections ||
+      oldDelegate.imageWidth != imageWidth ||
+      oldDelegate.imageHeight != imageHeight;
 }

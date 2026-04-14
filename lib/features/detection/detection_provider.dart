@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:ai_vision_pro/features/ai/nvidia_ai_service.dart';
 import 'dart:async';
 
@@ -33,22 +34,24 @@ class AppDetectedObject {
 }
 
 enum DistanceLevel { close, medium, far }
-
 enum ObstaclePriority { critical, high, medium, low }
 
 class DetectionProvider extends ChangeNotifier {
-  // Use ML Kit ONLY for bounding boxes / spatial awareness
+  // ── ML Kit Object Detector ──
   final ObjectDetector _objectDetector = ObjectDetector(
     options: ObjectDetectorOptions(
       mode: DetectionMode.stream,
-      classifyObjects: true, // Enabled for generic classification
+      classifyObjects: true, 
       multipleObjects: true,
     ),
   );
+
+  // ── ML Kit Image Labeler (400+ labels — the core of the concept) ──
+  final ImageLabeler _imageLabeler = ImageLabeler(
+    options: ImageLabelerOptions(confidenceThreshold: 0.60), // 60% threshold per methodology
+  );
+
   final TextRecognizer _textRecognizer = TextRecognizer();
-  
-  // Custom CNN / ANN integration via TFLite for highly accurate CV
-  Interpreter? _cnnInterpreter;
   
   bool _isProcessing = false;
   bool _isDetectionEnabled = true;
@@ -63,9 +66,15 @@ class DetectionProvider extends ChangeNotifier {
   
   List<AppDetectedObject> _currentDetections = [];
   List<AppDetectedObject> _ocrResults = [];
+
+  /// Store last camera image dimensions for bounding box scaling
+  int _lastImageWidth = 0;
+  int _lastImageHeight = 0;
   
   Function(List<AppDetectedObject>)? onNewDetection;
   Function(String)? onSpeakText;
+
+  final OnDeviceAIService _onDeviceAI = OnDeviceAIService();
   
   static const List<String> _priorityObjects = [
     'person', 'people', 'human',
@@ -82,21 +91,8 @@ class DetectionProvider extends ChangeNotifier {
   String? get error => _error;
   List<AppDetectedObject> get currentDetections => _currentDetections;
   List<AppDetectedObject> get ocrResults => _ocrResults;
-
-  DetectionProvider() {
-    _loadCnnModel();
-  }
-
-  /// Initialize CNN / ANN Model
-  Future<void> _loadCnnModel() async {
-    try {
-      // NOTE: Place a robust CNN model like MobileNetV2 or YOLO in assets/models/
-      _cnnInterpreter = await Interpreter.fromAsset('assets/models/mobilenet_v2.tflite');
-      // _cnnInterpreter is kept for future expansion
-    } catch (e) {
-      debugPrint("Failed to load custom CNN model: $e. Falling back to basics.");
-    }
-  }
+  int get lastImageWidth => _lastImageWidth;
+  int get lastImageHeight => _lastImageHeight;
 
   Future<void> processImage(CameraImage image) async {
     if (!_isDetectionEnabled || _isProcessing) return;
@@ -110,6 +106,11 @@ class DetectionProvider extends ChangeNotifier {
     
     try {
       _isProcessing = true;
+
+      // Store image dimensions for bounding box scaling on the UI side
+      _lastImageWidth = image.width;
+      _lastImageHeight = image.height;
+      
       final inputImage = _convertCameraImageToInputImage(image);
       if (inputImage == null) {
         _isProcessing = false;
@@ -118,23 +119,25 @@ class DetectionProvider extends ChangeNotifier {
       
       final List<AppDetectedObject> newDetections = <AppDetectedObject>[];
       
-      // 1. Spatial Awareness
+      // ── 1. ML Kit Object Detection (provides bounding boxes + spatial info) ──
       final List<DetectedObject> objects = await _objectDetector.processImage(inputImage);
       
       for (final DetectedObject obj in objects) {
         final spatialLoc = _getSpatialLocation(obj.boundingBox, image.width.toDouble());
         final distanceLevel = _estimateDistance(obj.boundingBox);
         
-        String accurateLabel = 'object'; // Fallback label
-        double confidence = 0.45; // Default confidence for spatial detection
-        
+        String accurateLabel = 'object';
+        double confidence = 0.45;
+
         if (obj.labels.isNotEmpty) {
-          accurateLabel = obj.labels.first.text.toLowerCase();
-          confidence = obj.labels.first.confidence;
+          final sortedLabels = List.of(obj.labels)
+            ..sort((a, b) => b.confidence.compareTo(a.confidence));
+          accurateLabel = sortedLabels.first.text;
+          confidence = sortedLabels.first.confidence;
         }
 
-        // Lowered threshold to 0.4 for better recall
-        if (confidence >= 0.4) {
+        // Accept detections at 60%+ confidence (per documented methodology)
+        if (confidence >= 0.60) {
           newDetections.add(AppDetectedObject(
             label: accurateLabel,
             confidence: confidence,
@@ -143,10 +146,49 @@ class DetectionProvider extends ChangeNotifier {
             distanceLevel: distanceLevel,
             spatialLocation: spatialLoc,
           ));
+        } else if (confidence <= 0.0 && accurateLabel == 'object') {
+          // Unlabeled but spatially detected — report as obstacle
+          newDetections.add(AppDetectedObject(
+            label: 'obstacle',
+            confidence: 0.45,
+            boundingBox: obj.boundingBox,
+            detectedAt: DateTime.now(),
+            distanceLevel: distanceLevel,
+            spatialLocation: spatialLoc,
+          ));
         }
+      }
+
+      // ── 2. ML Kit Image Labeling (provides 400+ rich labels) ──
+      // Image Labeling has no bounding boxes, but provides much richer labels
+      // like "laptop", "coffee cup", "book", "headphones" — the core feature.
+      try {
+        final List<ImageLabel> labels = await _imageLabeler.processImage(inputImage);
+        
+        // Build a set of already-detected labels from Object Detection to avoid duplicates
+        final existingLabels = newDetections.map((d) => d.label.toLowerCase()).toSet();
+        
+        for (final ImageLabel label in labels) {
+          if (label.confidence < 0.60) continue; // Confidence threshold per methodology
+          
+          // Skip if object detection already found this label
+          if (existingLabels.contains(label.label.toLowerCase())) continue;
+          
+          newDetections.add(AppDetectedObject(
+            label: label.label,
+            confidence: label.confidence,
+            boundingBox: null, // Image labeling doesn't provide bounding boxes
+            detectedAt: DateTime.now(),
+            distanceLevel: DistanceLevel.medium, // Default — no spatial info available
+            spatialLocation: 'in the scene',
+          ));
+        }
+      } catch (e) {
+        debugPrint('Image labeling error: $e');
       }
       
       _currentDetections = newDetections;
+      if (onNewDetection != null) onNewDetection!(newDetections); // fires vibration
       await _handleSmartAnnouncement(newDetections);
       
       if (_isOcrEnabled) {
@@ -170,28 +212,24 @@ class DetectionProvider extends ChangeNotifier {
 
   InputImage? _convertCameraImageToInputImage(CameraImage image) {
     try {
-      if (image.format.group == ImageFormatGroup.nv21) {
-        return InputImage.fromBytes(
-          bytes: image.planes[0].bytes,
-          metadata: InputImageMetadata(
-            size: Size(image.width.toDouble(), image.height.toDouble()),
-            rotation: InputImageRotation.rotation0deg,
-            format: InputImageFormat.nv21,
-            bytesPerRow: image.planes[0].bytesPerRow,
-          ),
-        );
+      final WriteBuffer allBytes = WriteBuffer();
+      for (final Plane plane in image.planes) {
+        allBytes.putUint8List(plane.bytes);
       }
-      if (image.format.group == ImageFormatGroup.bgra8888) {
-        return InputImage.fromBytes(
-          bytes: image.planes[0].bytes,
-          metadata: InputImageMetadata(
-            size: Size(image.width.toDouble(), image.height.toDouble()),
-            rotation: InputImageRotation.rotation0deg,
-            format: InputImageFormat.bgra8888,
-            bytesPerRow: image.planes[0].bytesPerRow,
-          ),
-        );
-      }
+      final bytes = allBytes.done().buffer.asUint8List();
+
+      final Size imageSize = Size(image.width.toDouble(), image.height.toDouble());
+      final imageRotation = InputImageRotationValue.fromRawValue(0) ?? InputImageRotation.rotation0deg;
+      final inputImageFormat = InputImageFormatValue.fromRawValue(image.format.raw) ?? InputImageFormat.nv21;
+
+      final inputImageData = InputImageMetadata(
+        size: imageSize,
+        rotation: imageRotation,
+        format: inputImageFormat,
+        bytesPerRow: image.planes[0].bytesPerRow,
+      );
+
+      return InputImage.fromBytes(bytes: bytes, metadata: inputImageData);
     } catch (e) {
       debugPrint('Error converting image: $e');
     }
@@ -275,6 +313,7 @@ class DetectionProvider extends ChangeNotifier {
     return true;
   }
 
+  /// Announce detected object with its label, position, and distance
   Future<void> _announceObject(AppDetectedObject detection) async {
     final now = DateTime.now();
     _lastAnnouncedObjects[detection.label] = now;
@@ -284,7 +323,7 @@ class DetectionProvider extends ChangeNotifier {
       _recentlyAnnouncedObjects.remove(detection.label);
     });
     
-    final message = '${detection.label} ${detection.spatialLocation} ${detection.distanceDescription}';
+    final message = '${detection.label} ${detection.spatialLocation}, ${detection.distanceDescription}';
     if (onSpeakText != null) onSpeakText!(message);
   }
 
@@ -316,35 +355,25 @@ class DetectionProvider extends ChangeNotifier {
     _lastAnnouncedObjects.clear();
   }
 
-  final NvidiaAIService _nvidiaAI = NvidiaAIService();
-
-  Future<void> describeSurroundings({bool useAdvancedAI = false}) async {
+  /// Describe surroundings using on-device detections only (no cloud API)
+  Future<void> describeSurroundings() async {
     clearRecentAnnouncements();
-    
-    if (useAdvancedAI) {
-      if (onSpeakText != null) onSpeakText!('Analyzing the scene using NVIDIA AI brain...');
-      // Logic to get a frame and send to NVIDIA would go here, 
-      // but for now we provide a smart summary of current detections if no frame is available.
-      // Ideally, the Screen would pass a File to this method.
-      final labels = _currentDetections.map((d) => d.label).toSet().join(', ');
-      final description = await _nvidiaAI.chat('I see these objects: $labels. Provide a very brief, helpful summary of the scene for a blind person.');
-      if (onSpeakText != null) onSpeakText!(description);
-      return;
-    }
 
     if (_currentDetections.isEmpty) {
       if (onSpeakText != null) onSpeakText!('No objects detected currently');
       return;
     }
-    final uniqueLabels = _currentDetections.map((d) => d.label).toSet().take(5).toList();
-    if (onSpeakText != null) onSpeakText!('I can see: ${uniqueLabels.join(', ')}');
+
+    final labels = _currentDetections.map((d) => d.label).toList();
+    final description = _onDeviceAI.describeScene(labels);
+    if (onSpeakText != null) onSpeakText!(description);
   }
 
   @override
   void dispose() {
     _objectDetector.close();
+    _imageLabeler.close();
     _textRecognizer.close();
-    _cnnInterpreter?.close();
     super.dispose();
   }
 }
