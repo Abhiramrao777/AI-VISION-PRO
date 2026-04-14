@@ -1,2 +1,1 @@
-# AI-VISION-PRO
-an app to assist blind
+"AI VISION PRO" AI based Android Application for Blind People
