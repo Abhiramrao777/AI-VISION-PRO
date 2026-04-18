@@ -7,6 +7,7 @@ import 'package:ai_vision_pro/features/tts/tts_provider.dart';
 import 'package:ai_vision_pro/features/vibration/vibration_provider.dart';
 import 'package:ai_vision_pro/features/voice_command/voice_command_provider.dart';
 import 'package:ai_vision_pro/features/accessibility/accessibility_provider.dart';
+import 'package:ai_vision_pro/features/emergency/emergency_provider.dart';
 import 'package:ai_vision_pro/core/services/permission_service.dart';
 import 'package:ai_vision_pro/ui/screens/camera_preview_screen.dart';
 import 'package:ai_vision_pro/ui/screens/settings_screen.dart';
@@ -34,9 +35,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await PermissionService().hasMicrophonePermission();
     setState(() => _isLoading = false);
 
-    // Auto-initialize services if permissions are already granted from a
-    // previous session. Without this, TTS/vibration/voice stay uninitialized
-    // on app restart and the first few detection announcements are lost.
     if (_hasCameraPermission) {
       _initializeServices();
     }
@@ -66,10 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final accessibilityProvider = context.watch<AccessibilityProvider>();
+    final emergencyProvider = context.watch<EmergencyProvider>();
     
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFF0F0F13), // Deep Gemini Dark
+      backgroundColor: emergencyProvider.isEmergencyActive ? Colors.red.withAlpha(50) : const Color(0xFF0F0F13),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -87,19 +86,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Stack(
         children: [
-          // Glowing Ambient Background (Gemini Vibe)
           Positioned(
             top: -100, left: -100,
             child: Container(
               width: 300, height: 300,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.blue.withValues(alpha: 0.2)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: emergencyProvider.isEmergencyActive ? Colors.red.withAlpha(100) : Colors.blue.withAlpha(50)),
             ),
           ),
           Positioned(
             bottom: -50, right: -50,
             child: Container(
               width: 350, height: 350,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.purple.withValues(alpha: 0.15)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: emergencyProvider.isEmergencyActive ? Colors.redAccent.withAlpha(100) : Colors.purple.withAlpha(40)),
             ),
           ),
           BackdropFilter(
@@ -112,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? const Center(child: CircularProgressIndicator(color: Colors.white))
                 : !_hasCameraPermission
                     ? _buildPermissionRequired()
-                    : _buildMainContent(accessibilityProvider),
+                    : _buildMainContent(accessibilityProvider, emergencyProvider),
           ),
         ],
       ),
@@ -146,13 +144,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMainContent(AccessibilityProvider accessibilityProvider) {
+  Widget _buildMainContent(AccessibilityProvider accessibilityProvider, EmergencyProvider emergencyProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Glassmorphic Hero Card
           ClipRRect(
             borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
@@ -160,9 +157,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(28),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: Colors.white.withAlpha(12),
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  border: Border.all(color: Colors.white.withAlpha(25), width: 1.5),
                 ),
                 child: Column(
                   children: [
@@ -219,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => _startVoiceCommands(),
           ),
           const SizedBox(height: 16),
-          _buildEmergencyButton(),
+          _buildEmergencyButton(emergencyProvider),
           const SizedBox(height: 20),
         ],
       ),
@@ -239,9 +236,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
+                color: color.withAlpha(38),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+                border: Border.all(color: color.withAlpha(76), width: 1.5),
               ),
               child: Row(
                 children: [
@@ -249,10 +246,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 20),
                   Text(
                     label,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white.withAlpha(230)),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.5)),
+                  Icon(Icons.chevron_right, color: Colors.white.withAlpha(127)),
                 ],
               ),
             ),
@@ -262,12 +259,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmergencyButton() {
+  Widget _buildEmergencyButton(EmergencyProvider emergencyProvider) {
+    bool isActive = emergencyProvider.isEmergencyActive;
     return Semantics(
       label: 'Emergency alert button. Long press to activate.',
       button: true,
       child: GestureDetector(
         onLongPress: _triggerEmergency,
+        onTap: isActive ? _triggerEmergency : null,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: BackdropFilter(
@@ -275,16 +274,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(alpha: 0.2),
+                color: isActive ? Colors.red : Colors.redAccent.withAlpha(50),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5), width: 2),
+                border: Border.all(color: Colors.redAccent.withAlpha(127), width: 2),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 32, color: Colors.redAccent),
-                  SizedBox(width: 12),
-                  Text('EMERGENCY ALERT', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                  Icon(isActive ? Icons.stop_circle : Icons.warning_amber_rounded, size: 32, color: isActive ? Colors.white : Colors.redAccent),
+                  const SizedBox(width: 12),
+                  Text(isActive ? 'STOP EMERGENCY' : 'EMERGENCY ALERT', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isActive ? Colors.white : Colors.redAccent)),
                 ],
               ),
             ),
@@ -294,7 +293,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- Handlers remain largely the same ---
   Future<void> _startScanning() async {
     final vibrationProvider = context.read<VibrationProvider>();
     vibrationProvider.vibrateForButtonPress();
@@ -304,28 +302,22 @@ class _HomeScreenState extends State<HomeScreen> {
     
     if (!cameraProvider.isInitialized) await cameraProvider.initializeCamera();
 
-    // Wire vibration directly to the detection stream so it always fires
-    // regardless of whether TTS speaks (avoids double-callback overwrite issues).
-    // This is the SOLE place vibration is triggered — camera_preview_screen
-    // only handles TTS to avoid duplicate wiring.
     detectionProvider.onNewDetection = (detections) {
       if (detections.isEmpty) return;
       final vibProvider = context.read<VibrationProvider>();
       final accessProvider = context.read<AccessibilityProvider>();
       if (!vibProvider.isVibrationEnabled || !accessProvider.isHapticFeedbackEnabled) return;
+      
       final first = detections.first;
-      final area = first.boundingBox != null
-          ? first.boundingBox!.width * first.boundingBox!.height
-          : null;
       final isPriority = detectionProvider.getObstaclePriority(first.label) == ObstaclePriority.critical;
+      
       vibProvider.vibrateForObject(
         isPriority: isPriority,
         spatialLocation: first.spatialLocation,
-        area: area,
+        distanceLevel: first.distanceLevel,
       );
     };
 
-    // TTS-only callback for speech (no vibration override here)
     detectionProvider.onSpeakText = (text) {
       ttsProvider.speak(text, interrupt: false);
     };
@@ -358,7 +350,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _triggerEmergency() async {
-    context.read<VibrationProvider>().vibrateForEmergency();
-    context.read<TTSProvider>().speak('Emergency alert activated.');
+    final cameraProvider = context.read<CameraProvider>();
+    if (!cameraProvider.isInitialized) await cameraProvider.initializeCamera();
+    await context.read<EmergencyProvider>().toggleEmergency(cameraProvider);
   }
 }

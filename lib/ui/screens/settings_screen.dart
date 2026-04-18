@@ -4,7 +4,6 @@ import 'package:ai_vision_pro/features/tts/tts_provider.dart';
 import 'package:ai_vision_pro/features/vibration/vibration_provider.dart';
 import 'package:ai_vision_pro/features/accessibility/accessibility_provider.dart';
 
-/// Settings screen for accessibility and app configuration
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -18,23 +17,19 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // Accessibility section
           _buildSectionHeader('Accessibility'),
-          
           SwitchListTile(
             title: const Text('High Contrast Mode'),
             subtitle: const Text('Increase contrast for better visibility'),
             value: accessibilityProvider.isHighContrastMode,
             onChanged: (_) => accessibilityProvider.toggleHighContrast(),
           ),
-          
           SwitchListTile(
             title: const Text('Large Text'),
             subtitle: const Text('Increase text size'),
             value: accessibilityProvider.isLargeTextMode,
             onChanged: (_) => accessibilityProvider.toggleLargeText(),
           ),
-          
           ListTile(
             title: const Text('Text Size'),
             subtitle: Slider(
@@ -46,36 +41,24 @@ class SettingsScreen extends StatelessWidget {
               onChanged: (value) => accessibilityProvider.setTextScaleFactor(value),
             ),
           ),
-          
           SwitchListTile(
             title: const Text('Voice Guidance'),
             subtitle: const Text('Announce detected objects'),
             value: accessibilityProvider.isVoiceGuidanceEnabled,
             onChanged: (_) => accessibilityProvider.toggleVoiceGuidance(),
           ),
-          
           SwitchListTile(
             title: const Text('Haptic Feedback'),
             subtitle: const Text('Vibrate on detection'),
             value: accessibilityProvider.isHapticFeedbackEnabled,
             onChanged: (_) => accessibilityProvider.toggleHapticFeedback(),
           ),
-          
           const Divider(),
-          
-          // TTS section
           _buildTtsSettings(context),
-          
           const Divider(),
-          
-          // Vibration section
           _buildVibrationSettings(context),
-          
           const Divider(),
-          
-          // Actions
           _buildSectionHeader('Actions'),
-          
           ListTile(
             leading: const Icon(Icons.refresh),
             title: const Text('Reset to Defaults'),
@@ -86,7 +69,6 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
-          
           ListTile(
             leading: const Icon(Icons.info),
             title: const Text('About AI VISION PRO'),
@@ -100,14 +82,7 @@ class SettingsScreen extends StatelessWidget {
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey,
-        ),
-      ),
+      child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
     );
   }
 
@@ -119,7 +94,6 @@ class SettingsScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Text-to-Speech'),
-        
         ListTile(
           title: const Text('Speech Rate'),
           subtitle: Slider(
@@ -131,7 +105,6 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (value) => ttsProvider.setSpeechRate(value),
           ),
         ),
-        
         ListTile(
           title: const Text('Pitch'),
           subtitle: Slider(
@@ -143,7 +116,6 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (value) => ttsProvider.setPitch(value),
           ),
         ),
-        
         ListTile(
           title: const Text('Volume'),
           subtitle: Slider(
@@ -155,7 +127,6 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (value) => ttsProvider.setVolume(value),
           ),
         ),
-        
         ListTile(
           leading: const Icon(Icons.volume_up),
           title: const Text('Test Speech'),
@@ -177,7 +148,6 @@ class SettingsScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Vibration'),
-        
         ListTile(
           leading: const Icon(Icons.vibration),
           title: Text(
@@ -193,7 +163,6 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (_) => vibrationProvider.toggleVibration(),
           ),
         ),
-        
         ListTile(
           leading: const Icon(Icons.touch_app),
           title: const Text('Test Vibration'),
@@ -214,9 +183,7 @@ class SettingsScreen extends StatelessWidget {
           children: [
             Text('Version: 1.0.0'),
             SizedBox(height: 16),
-            Text(
-              'AI VISION PRO is an AI-powered assistive application designed to help blind and visually impaired users navigate their environment.',
-            ),
+            Text('AI VISION PRO is an AI-powered assistive application designed to help blind and visually impaired users navigate their environment.'),
             SizedBox(height: 16),
             Text('Features:'),
             Text('• Real-time object detection'),
@@ -228,10 +195,7 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CLOSE'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE')),
         ],
       ),
     );

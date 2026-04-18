@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 
-/// Provider for camera functionality
 class CameraProvider extends ChangeNotifier {
   CameraController? _controller;
   bool _isInitialized = false;
@@ -9,11 +8,9 @@ class CameraProvider extends ChangeNotifier {
   String? _error;
   List<CameraDescription>? _availableCameras;
   int _selectedCameraIndex = 0;
-  
-  // Callback for image processing
+
   Function(CameraImage)? onImageAvailable;
 
-  // Getters
   CameraController? get controller => _controller;
   bool get isInitialized => _isInitialized;
   bool get isStreaming => _isStreaming;
@@ -22,23 +19,19 @@ class CameraProvider extends ChangeNotifier {
   List<CameraDescription>? get cameras => _availableCameras;
   int get selectedCameraIndex => _selectedCameraIndex;
 
-  /// Initialize camera
   Future<void> initializeCamera() async {
     try {
       _error = null;
       notifyListeners();
 
-      // Explicitly call the top-level function from the camera package
-      // to avoid any shadowing with getters
       _availableCameras = await availableCameras();
-      
+
       if (_availableCameras == null || _availableCameras!.isEmpty) {
         _error = 'No cameras available on this device';
         notifyListeners();
         return;
       }
 
-      // Select back camera by default (index 0 is usually back camera)
       _selectedCameraIndex = 0;
       for (int i = 0; i < _availableCameras!.length; i++) {
         if (_availableCameras![i].lensDirection == CameraLensDirection.back) {
@@ -54,25 +47,22 @@ class CameraProvider extends ChangeNotifier {
     }
   }
 
-  /// Initialize camera controller with specific camera
   Future<void> _initializeCameraController(int cameraIndex) async {
     try {
-      // Dispose existing controller
       await disposeController();
 
       if (_availableCameras == null || _availableCameras!.isEmpty) return;
       final camera = _availableCameras![cameraIndex];
-      
-      // Use lower resolution for better performance
+
       _controller = CameraController(
         camera,
-        ResolutionPreset.medium, // 720p - good balance between quality and performance
+        ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.nv21, // Required for ML Kit
+        imageFormatGroup: ImageFormatGroup.nv21,
       );
 
       await _controller!.initialize();
-      
+
       if (!_controller!.value.isInitialized) {
         _error = 'Camera failed to initialize';
         notifyListeners();
@@ -89,7 +79,6 @@ class CameraProvider extends ChangeNotifier {
     }
   }
 
-  /// Start camera stream
   Future<void> startStream() async {
     if (_controller == null || !_controller!.value.isInitialized) {
       await initializeCamera();
@@ -111,7 +100,6 @@ class CameraProvider extends ChangeNotifier {
     }
   }
 
-  /// Stop camera stream
   Future<void> stopStream() async {
     if (_controller != null && _controller!.value.isStreamingImages) {
       try {
@@ -125,38 +113,35 @@ class CameraProvider extends ChangeNotifier {
     }
   }
 
-  /// Switch between front and back camera
   Future<void> switchCamera() async {
-    if (_availableCameras == null || _availableCameras!.length <= 1) {
-      return;
-    }
-
-    _selectedCameraIndex = (_selectedCameraIndex + 1) % _availableCameras!.length;
+    if (_availableCameras == null || _availableCameras!.length <= 1) return;
+    _selectedCameraIndex =
+        (_selectedCameraIndex + 1) % _availableCameras!.length;
     await _initializeCameraController(_selectedCameraIndex);
   }
 
-  /// Toggle flash
   Future<void> toggleFlash() async {
     if (_controller != null && _controller!.value.isInitialized) {
       try {
         final currentMode = _controller!.value.flashMode;
         FlashMode newMode;
-        
+
         switch (currentMode) {
           case FlashMode.off:
-            newMode = FlashMode.always;
+            newMode =
+                FlashMode.torch; // Use torch for solid light instead of always
             break;
-          case FlashMode.always:
+          case FlashMode.torch:
             newMode = FlashMode.auto;
             break;
           case FlashMode.auto:
-            newMode = FlashMode.torch;
+            newMode = FlashMode.off;
             break;
-          case FlashMode.torch:
+          default:
             newMode = FlashMode.off;
             break;
         }
-        
+
         await _controller!.setFlashMode(newMode);
         notifyListeners();
       } catch (e) {
@@ -166,7 +151,6 @@ class CameraProvider extends ChangeNotifier {
     }
   }
 
-  /// Dispose camera controller
   Future<void> disposeController() async {
     if (_controller != null) {
       try {
@@ -190,7 +174,6 @@ class CameraProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Clear error
   void clearError() {
     _error = null;
     notifyListeners();

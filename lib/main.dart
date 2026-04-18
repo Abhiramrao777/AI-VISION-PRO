@@ -7,14 +7,12 @@ import 'package:ai_vision_pro/features/tts/tts_provider.dart';
 import 'package:ai_vision_pro/features/vibration/vibration_provider.dart';
 import 'package:ai_vision_pro/features/voice_command/voice_command_provider.dart';
 import 'package:ai_vision_pro/features/accessibility/accessibility_provider.dart';
+import 'package:ai_vision_pro/features/emergency/emergency_provider.dart';
 import 'package:ai_vision_pro/ui/screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize permission service
   await PermissionService.initialize();
-  
   runApp(const AIVisionProApp());
 }
 
@@ -31,6 +29,7 @@ class AIVisionProApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => VibrationProvider()),
         ChangeNotifierProvider(create: (_) => VoiceCommandProvider()),
         ChangeNotifierProvider(create: (_) => AccessibilityProvider()),
+        ChangeNotifierProvider(create: (_) => EmergencyProvider()),
       ],
       child: MaterialApp(
         title: 'AI VISION PRO',
@@ -49,7 +48,8 @@ class AIVisionProApp extends StatelessWidget {
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textStyle:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
           iconTheme: const IconThemeData(

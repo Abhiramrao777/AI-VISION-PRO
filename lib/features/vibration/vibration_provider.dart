@@ -1,27 +1,25 @@
 import 'package:flutter/foundation.dart';
 import 'package:vibration/vibration.dart';
+import 'package:ai_vision_pro/features/detection/detection_provider.dart';
 
-/// Provider for haptic feedback
+/// Provider for accurate, distance-mapped haptic feedback
 class VibrationProvider extends ChangeNotifier {
   bool _isVibrationEnabled = true;
   bool _hasVibrator = false;
   bool _hasCustomVibrations = false;
-  bool _hasAmplitudeControl = false;
   String? _error;
 
-  // Getters
   bool get isVibrationEnabled => _isVibrationEnabled;
   bool get hasVibrator => _hasVibrator;
   bool get hasError => _error != null;
   String? get error => _error;
 
-  /// Initialize vibration service
   Future<void> initialize() async {
     try {
-      _hasVibrator = await Vibration.hasVibrator();
+      _hasVibrator = await Vibration.hasVibrator() == true;
       if (_hasVibrator) {
-        _hasCustomVibrations = await Vibration.hasCustomVibrationsSupport();
-        _hasAmplitudeControl = await Vibration.hasAmplitudeControl();
+        _hasCustomVibrations =
+            await Vibration.hasCustomVibrationsSupport() == true;
       }
       _error = null;
       notifyListeners();
@@ -32,54 +30,38 @@ class VibrationProvider extends ChangeNotifier {
     }
   }
 
-  /// Vibrate with pattern for object detection including spatial awareness
-  Future<void> vibrateForObject({bool isPriority = false, String spatialLocation = 'center', double? area}) async {
+  /// Vibrate with pattern strictly mapped to DistanceLevel.
+  Future<void> vibrateForObject(
+      {bool isPriority = false,
+      String spatialLocation = 'center',
+      DistanceLevel distanceLevel = DistanceLevel.medium}) async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
-    
-    try {
-      if (area != null) {
-        // Distance-based vibration mapping
-        if (area > 100000) {
-          // Extremely close: Continuous pulse
-          await Vibration.cancel();
-          if (_hasCustomVibrations && _hasAmplitudeControl) {
-            await Vibration.vibrate(pattern: [0, 500, 50, 500], intensities: [0, 255, 0, 255]);
-          } else {
-            await Vibration.vibrate(duration: 1000); // Standard fallback
-          }
-          Future.delayed(const Duration(milliseconds: 1000), () => Vibration.cancel());
-        } else if (area > 30000) {
-          // Medium distance: Steady double pulse
-          if (_hasCustomVibrations) {
-            await Vibration.vibrate(pattern: [0, 150, 100, 150]);
-          } else {
-            await Vibration.vibrate(duration: 300);
-          }
-        } else {
-          // Far: Light single tap
-          await Vibration.vibrate(duration: 50);
-        }
-        return;
-      }
 
-      // Fallback to priority/location based logic if area is not provided
-      if (isPriority) {
-        if (spatialLocation.contains('left') && _hasCustomVibrations) {
-          await Vibration.vibrate(pattern: [0, 100, 50, 100]);
-        } else if (spatialLocation.contains('right') && _hasCustomVibrations) {
-          await Vibration.vibrate(pattern: [0, 50, 50, 200]);
+    try {
+      await Vibration.cancel();
+
+      if (_hasCustomVibrations) {
+        if (distanceLevel == DistanceLevel.close) {
+          await Vibration.vibrate(pattern: [0, 100, 50, 100, 50, 150]);
+        } else if (distanceLevel == DistanceLevel.medium) {
+          await Vibration.vibrate(pattern: [0, 250, 100, 250]);
         } else {
-          await Vibration.vibrate(duration: 200);
+          await Vibration.vibrate(duration: 80);
         }
       } else {
-        await Vibration.vibrate(duration: 50);
+        if (distanceLevel == DistanceLevel.close) {
+          await Vibration.vibrate(duration: 500);
+        } else if (distanceLevel == DistanceLevel.medium) {
+          await Vibration.vibrate(duration: 200);
+        } else {
+          await Vibration.vibrate(duration: 50);
+        }
       }
     } catch (e) {
       debugPrint('Vibration error: $e');
     }
   }
 
-  /// Vibrate for a clear path (positive feedback)
   Future<void> vibrateForClearPath() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
     try {
@@ -93,12 +75,11 @@ class VibrationProvider extends ChangeNotifier {
     }
   }
 
-  /// Vibrate for obstacle warning (critical)
   Future<void> vibrateForWarning() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
     try {
       if (_hasCustomVibrations) {
-        await Vibration.vibrate(pattern: [0, 200, 100, 200, 200, 200]);
+        await Vibration.vibrate(pattern: [0, 200, 100, 200, 100, 200]);
       } else {
         await Vibration.vibrate(duration: 800);
       }
@@ -107,31 +88,15 @@ class VibrationProvider extends ChangeNotifier {
     }
   }
 
-  /// Vibrate for button press feedback
   Future<void> vibrateForButtonPress() async {
     if (!_isVibrationEnabled || !_hasVibrator) return;
     try {
-      await Vibration.vibrate(duration: 30);
+      await Vibration.vibrate(duration: 40);
     } catch (e) {
       debugPrint('Button vibration error: $e');
     }
   }
 
-  /// Vibrate for emergency alert
-  Future<void> vibrateForEmergency() async {
-    if (!_isVibrationEnabled || !_hasVibrator) return;
-    try {
-      if (_hasCustomVibrations) {
-        await Vibration.vibrate(pattern: [0, 500, 200, 500]);
-      } else {
-        await Vibration.vibrate(duration: 2000);
-      }
-    } catch (e) {
-      debugPrint('Emergency vibration error: $e');
-    }
-  }
-
-  /// Stop all vibration
   Future<void> stopVibration() async {
     try {
       await Vibration.cancel();
