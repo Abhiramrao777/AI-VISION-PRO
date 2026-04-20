@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 
 class CameraProvider extends ChangeNotifier {
@@ -63,11 +63,13 @@ class CameraProvider extends ChangeNotifier {
 
       await _controller!.initialize();
 
-      if (!_controller!.value.isInitialized) {
+      if (!(_controller?.value.isInitialized ?? false)) {
         _error = 'Camera failed to initialize';
         notifyListeners();
         return;
       }
+
+      await _controller!.setFocusMode(FocusMode.auto);
 
       _isInitialized = true;
       _error = null;
@@ -76,6 +78,22 @@ class CameraProvider extends ChangeNotifier {
       _error = 'Camera initialization error: $e';
       _isInitialized = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> setFocusPoint(Offset point, Size screenSize) async {
+    if (_controller != null && _controller!.value.isInitialized) {
+      try {
+        final double x = (point.dx / screenSize.width).clamp(0.0, 1.0);
+        final double y = (point.dy / screenSize.height).clamp(0.0, 1.0);
+        final Offset focusPoint = Offset(x, y);
+
+        await _controller!.setFocusPoint(focusPoint);
+        await _controller!.setExposurePoint(focusPoint);
+        await _controller!.setFocusMode(FocusMode.auto);
+      } catch (e) {
+        debugPrint('Focus error: $e');
+      }
     }
   }
 
@@ -128,8 +146,7 @@ class CameraProvider extends ChangeNotifier {
 
         switch (currentMode) {
           case FlashMode.off:
-            newMode =
-                FlashMode.torch; // Use torch for solid light instead of always
+            newMode = FlashMode.torch;
             break;
           case FlashMode.torch:
             newMode = FlashMode.auto;

@@ -242,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(icon, size: 32, color: color),
+                   Icon(icon, size: 32, color: color),
                   const SizedBox(width: 20),
                   Text(
                     label,

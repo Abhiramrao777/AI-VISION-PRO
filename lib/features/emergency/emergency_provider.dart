@@ -5,7 +5,6 @@ import 'package:vibration/vibration.dart';
 import 'package:camera/camera.dart';
 import 'package:ai_vision_pro/features/camera/camera_provider.dart';
 
-/// Provider for a genuine, functional Emergency SOS system.
 class EmergencyProvider extends ChangeNotifier {
   bool _isEmergencyActive = false;
   Timer? _sosTimer;
@@ -42,7 +41,6 @@ class EmergencyProvider extends ChangeNotifier {
         }
       }
 
-      // Null-aware warning fixed here.
       if (await Vibration.hasVibrator() == true) {
         Vibration.vibrate(duration: 400);
       }

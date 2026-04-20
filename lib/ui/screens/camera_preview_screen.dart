@@ -16,12 +16,21 @@ class CameraPreviewScreen extends StatefulWidget {
   State<CameraPreviewScreen> createState() => _CameraPreviewScreenState();
 }
 
-class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
+class _CameraPreviewScreenState extends State<CameraPreviewScreen>
+    with SingleTickerProviderStateMixin {
+  Offset? _tapFocusIndicator;
+  late AnimationController _focusAnimController;
+
   @override
   void initState() {
     super.initState();
     _setupDetectionCallback();
     _startVoiceCommandListener();
+
+    _focusAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
   }
 
   void _setupDetectionCallback() {
@@ -69,6 +78,22 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
     context.read<EmergencyProvider>().toggleEmergency(cameraProvider);
   }
 
+  void _onScreenTap(TapDownDetails details) {
+    final cameraProvider = context.read<CameraProvider>();
+    final size = MediaQuery.of(context).size;
+    cameraProvider.setFocusPoint(details.localPosition, size);
+
+    setState(() {
+      _tapFocusIndicator = details.localPosition;
+    });
+
+    _focusAnimController.forward(from: 0).whenComplete(() {
+      setState(() {
+        _tapFocusIndicator = null;
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cameraProvider = context.watch<CameraProvider>();
@@ -86,21 +111,48 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(child: CameraPreview(cameraProvider.controller!)),
+          Positioned.fill(
+            child: GestureDetector(
+              onTapDown: _onScreenTap,
+              child: CameraPreview(cameraProvider.controller!),
+            ),
+          ),
           Positioned.fill(
             child: CustomPaint(
               painter: DetectionOverlayPainter(
-                detections: detectionProvider.currentDetections,
+                detections: detectionProvider.isOcrEnabled
+                    ? detectionProvider.ocrResults
+                    : detectionProvider.currentDetections,
                 imageWidth: detectionProvider.lastImageWidth.toDouble(),
                 imageHeight: detectionProvider.lastImageHeight.toDouble(),
               ),
             ),
           ),
+          if (_tapFocusIndicator != null)
+            Positioned(
+              left: _tapFocusIndicator!.dx - 25,
+              top: _tapFocusIndicator!.dy - 25,
+              child: FadeTransition(
+                opacity: Tween<double>(begin: 1.0, end: 0.0)
+                    .animate(_focusAnimController),
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 1.5, end: 1.0).animate(
+                      CurvedAnimation(
+                          parent: _focusAnimController,
+                          curve: Curves.easeOutBack)),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.yellowAccent, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (emergencyProvider.isEmergencyActive)
             Positioned.fill(
-              child: Container(
-                color: Colors.red.withAlpha(100),
-              ),
+              child: Container(color: Colors.red.withAlpha(100)),
             ),
           Positioned(
               top: 0,
@@ -113,7 +165,8 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
               left: 0,
               right: 0,
               child: _buildBottomGlassControls(emergencyProvider)),
-          if (detectionProvider.currentDetections.isNotEmpty)
+          if (detectionProvider.currentDetections.isNotEmpty &&
+              !detectionProvider.isOcrEnabled)
             Positioned(
                 top: 120,
                 left: 20,
@@ -332,7 +385,7 @@ class _CameraPreviewScreenState extends State<CameraPreviewScreen> {
 
   @override
   void dispose() {
-    context.read<CameraProvider>().stopStream();
+    _focusAnimController.dispose();
     super.dispose();
   }
 }
@@ -366,8 +419,14 @@ class DetectionOverlayPainter extends CustomPainter {
       ..color = Colors.blueAccent.withAlpha(178)
       ..style = PaintingStyle.fill;
 
+    Map<String, int> objectCounters = {};
+
     for (final detection in detections) {
       if (detection.boundingBox != null) {
+        objectCounters[detection.label] =
+            (objectCounters[detection.label] ?? 0) + 1;
+        int currentCount = objectCounters[detection.label]!;
+
         final rect = Rect.fromLTWH(
           detection.boundingBox!.left * scaleX,
           detection.boundingBox!.top * scaleY,
@@ -380,7 +439,7 @@ class DetectionOverlayPainter extends CustomPainter {
         canvas.drawRRect(rRect, boxPaint);
 
         final labelText =
-            '${detection.label} ${(detection.confidence * 100).toInt()}%';
+            '${detection.label} ($currentCount) ${(detection.confidence * 100).toInt()}%';
         final textPainter = TextPainter(
           text: TextSpan(
             text: labelText,
@@ -401,8 +460,5 @@ class DetectionOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant DetectionOverlayPainter oldDelegate) =>
-      oldDelegate.detections != detections ||
-      oldDelegate.imageWidth != imageWidth ||
-      oldDelegate.imageHeight != imageHeight;
+  bool shouldRepaint(covariant DetectionOverlayPainter oldDelegate) => true;
 }

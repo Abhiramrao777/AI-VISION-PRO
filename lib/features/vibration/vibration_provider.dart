@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:vibration/vibration.dart';
 import 'package:ai_vision_pro/features/detection/detection_provider.dart';
 
-/// Provider for accurate, distance-mapped haptic feedback
 class VibrationProvider extends ChangeNotifier {
   bool _isVibrationEnabled = true;
   bool _hasVibrator = false;
@@ -30,7 +29,6 @@ class VibrationProvider extends ChangeNotifier {
     }
   }
 
-  /// Vibrate with pattern strictly mapped to DistanceLevel.
   Future<void> vibrateForObject(
       {bool isPriority = false,
       String spatialLocation = 'center',

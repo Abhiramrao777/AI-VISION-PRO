@@ -1,47 +1,36 @@
 name: ai_vision_pro
 description: AI-powered assistive app for blind users with real-time object detection, OCR, and voice commands.
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
-  flutter: '>=3.10.0'
+  sdk: '>=3.2.3 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
-
   
-  # Camera & Image Processing
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  provider: ^6.1.2
+
+  # Hardware & Permissions
   camera: ^0.12.0+1
-  image: ^4.8.0
-  
-  # ML Kit
-  google_mlkit_image_labeling: ^0.14.2
+  permission_handler: ^12.0.1
+  vibration: ^3.1.8
+  device_info_plus: ^13.0.0
+
+  # Voice, Speech & Audio
+  flutter_tts: ^4.0.2
+  speech_to_text: ^7.3.0
+  audioplayers: ^6.6.0
+
+  # AI & Machine Learning (Google ML Kit)
+  google_mlkit_image_labeling: ^0.14.0
   google_mlkit_object_detection: ^0.15.1
   google_mlkit_text_recognition: ^0.15.1
-  
-  # Text-to-Speech
-  flutter_tts: ^4.2.5
-  
-  # Permissions
-  permission_handler: ^12.0.1
-  
-  # Voice Recognition
-  speech_to_text: ^7.3.0
-  
-  # State Management
-  provider: ^6.0.5
-  
-  # Utilities
-  vibration: ^3.1.8
-  audioplayers: ^5.2.1
-  
-  # UI
-  cupertino_icons: ^1.0.6
-
-  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

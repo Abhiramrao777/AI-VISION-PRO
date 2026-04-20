@@ -12,14 +12,14 @@ enum VoiceCommand {
 
 class VoiceCommandProvider extends ChangeNotifier {
   final stt.SpeechToText _speechToText = stt.SpeechToText();
-  
+
   bool _isInitialized = false;
   bool _isListening = false;
   bool _isEnabled = true;
   String? _error;
   String _lastHeard = '';
   VoiceCommand _lastCommand = VoiceCommand.unknown;
-  
+
   Function(VoiceCommand)? onVoiceCommand;
 
   bool get isInitialized => _isInitialized;
@@ -33,7 +33,7 @@ class VoiceCommandProvider extends ChangeNotifier {
   Future<void> initialize() async {
     try {
       _error = null;
-      
+
       _isInitialized = await _speechToText.initialize(
         onError: (error) {
           _error = 'Speech recognition error: ${error.errorMsg}';
@@ -50,7 +50,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           }
         },
       );
-      
+
       notifyListeners();
     } catch (e) {
       _error = 'Failed to initialize speech recognition: $e';
@@ -61,7 +61,7 @@ class VoiceCommandProvider extends ChangeNotifier {
 
   Future<void> startListening() async {
     if (!_isEnabled || !_isInitialized) return;
-    
+
     try {
       _speechToText.listen(
         onResult: (result) {
@@ -77,7 +77,6 @@ class VoiceCommandProvider extends ChangeNotifier {
           listenMode: stt.ListenMode.confirmation,
         ),
       );
-      
     } catch (e) {
       _error = 'Failed to start listening: $e';
       notifyListeners();
@@ -97,20 +96,27 @@ class VoiceCommandProvider extends ChangeNotifier {
 
   void _parseVoiceCommand(String text) {
     final lowerText = text.toLowerCase();
-    
-    if (lowerText.contains('start') && (lowerText.contains('scan') || lowerText.contains('detect'))) {
+
+    if (lowerText.contains('start') &&
+        (lowerText.contains('scan') || lowerText.contains('detect'))) {
       _lastCommand = VoiceCommand.startScanning;
       _triggerCommand(VoiceCommand.startScanning);
-    } else if (lowerText.contains('stop') || lowerText.contains('pause') || lowerText.contains('halt')) {
+    } else if (lowerText.contains('stop') ||
+        lowerText.contains('pause') ||
+        lowerText.contains('halt')) {
       _lastCommand = VoiceCommand.stopScanning;
       _triggerCommand(VoiceCommand.stopScanning);
-    } else if (lowerText.contains('read') && (lowerText.contains('text') || lowerText.contains('sign'))) {
+    } else if (lowerText.contains('read') &&
+        (lowerText.contains('text') || lowerText.contains('sign'))) {
       _lastCommand = VoiceCommand.readText;
       _triggerCommand(VoiceCommand.readText);
-    } else if (lowerText.contains('what') && (lowerText.contains('around') || lowerText.contains('see'))) {
+    } else if (lowerText.contains('what') &&
+        (lowerText.contains('around') || lowerText.contains('see'))) {
       _lastCommand = VoiceCommand.describeSurroundings;
       _triggerCommand(VoiceCommand.describeSurroundings);
-    } else if (lowerText.contains('emergency') || lowerText.contains('help') || lowerText.contains('alert')) {
+    } else if (lowerText.contains('emergency') ||
+        lowerText.contains('help') ||
+        lowerText.contains('alert')) {
       _lastCommand = VoiceCommand.emergency;
       _triggerCommand(VoiceCommand.emergency);
     }
