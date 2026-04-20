@@ -1,8 +1,8 @@
 name: ai_vision_pro
-description: AI-powered assistive app for blind users with real-time object detection, OCR, and voice commands.
+description: AI Powered assistive app for blind users with real-time object detection, OCR and voice commands.
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.4.0+1
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -36,6 +36,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/logo/ai_vision_pro_logo.png"
+  min_sdk_android: 24
 
 flutter:
   uses-material-design: true
