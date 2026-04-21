@@ -87,50 +87,279 @@ class DetectionProvider extends ChangeNotifier {
   List<String> _lastOcrTokens = [];
 
   static const Set<String> _suppressedLabels = {
-    'rectangle', 'line', 'parallel', 'pattern', 'symmetry', 'circle',
-    'triangle', 'square', 'polygon', 'ellipse', 'oval', 'hexagon', 'octagon',
-    'rhombus', 'trapezoid', 'curve', 'arc', 'angle', 'diagonal', 'shape',
-    'line art', 'snapshot', 'photography', 'monochrome', 'black and white',
-    'grayscale', 'close-up', 'macro photography', 'still life', 'stock photography',
-    'bokeh', 'depth of field', 'focus', 'blur', 'perspective', 'view',
-    'angle view', 'wide angle', 'fisheye', 'panorama', 'vignette', 'exposure',
-    'overexposed', 'underexposed', 'noise', 'grain', 'shutter speed', 'aperture',
-    'iso', 'white balance', 'raw image', 'jpeg', 'png', 'tiff', 'bitmap',
-    'pixel', 'resolution', 'dpi', 'color', 'red', 'blue', 'green', 'yellow',
-    'black', 'white', 'gray', 'grey', 'brown', 'purple', 'orange', 'pink',
-    'cyan', 'magenta', 'electric blue', 'turquoise', 'violet', 'indigo',
-    'maroon', 'olive', 'navy', 'teal', 'coral', 'salmon', 'beige', 'ivory',
-    'khaki', 'cream', 'silver', 'gold', 'bronze', 'copper', 'platinum',
-    'lightness', 'contrast', 'brightness', 'saturation', 'hue', 'gradient',
-    'shadow', 'reflection', 'refraction', 'transparency', 'opacity', 'luminance',
-    'radiance', 'glow', 'shine', 'gloss', 'matte', 'sheen', 'tints and shades',
-    'colorfulness', 'material property', 'art', 'visual arts', 'illustration',
-    'animation', 'fictional character', 'graphic design', 'drawing', 'sketch',
-    'design', 'abstract representation', 'logo', 'brand', 'graphics', 'font',
-    'typography', 'lettering', 'calligraphy', 'handwriting', 'doodle', 'painting',
-    'watercolor', 'oil painting', 'acrylic', 'sculpture', 'carving', 'engraving',
-    'texture', 'surface', 'wood', 'metal', 'plastic', 'glass', 'fabric',
-    'textile', 'leather', 'rubber', 'foam', 'concrete', 'stone', 'brick', 'tile',
-    'ceramic', 'porcelain', 'marble', 'granite', 'steel', 'iron', 'aluminum',
-    'copper material', 'carbon fiber', 'fiber', 'indoor', 'outdoor', 'room',
-    'architecture', 'building', 'city', 'street', 'road', 'light', 'scene',
-    'nature', 'environment', 'universe', 'space', 'sky', 'cloud', 'horizon',
-    'landscape', 'cityscape', 'streetscape', 'roofscape', 'seascape', 'nightscape',
-    'backdrop', 'background', 'foreground', 'setting', 'location', 'place',
-    'mathematics', 'geometry', 'algebra', 'calculus', 'physics', 'chemistry',
-    'biology', 'medicine', 'health', 'fitness', 'science', 'technology',
-    'engineering', 'machine', 'service', 'astronomy', 'economics', 'business',
-    'finance', 'industry', 'agriculture', 'politics', 'history', 'geography',
-    'literature', 'philosophy', 'psychology', 'event', 'leisure', 'fun', 'happy',
-    'cool', 'comfort', 'darkness', 'midnight', 'number', 'entertainment', 'music',
-    'play', 'game', 'sports', 'hobby', 'lifestyle', 'fashion', 'style', 'trend',
-    'vintage', 'retro', 'modern', 'classic', 'contemporary', 'antique', 'rustic',
-    'minimalist', 'aesthetic', 'vibe', 'mood', 'atmosphere', 'automotive tire',
-    'portrait', 'selfie', 'monochrome photography', 'black & white',
-    'grayscale image', 'photographic film', 'film photography',
-    'analogue photography', 'digital photography', 'photo', 'photograph',
-    'image', 'picture', 'frame', 'filter', 'effect', 'edit', 'crop', 'resize',
-    'rotate', 'flip'
+    'rectangle',
+    'line',
+    'parallel',
+    'pattern',
+    'symmetry',
+    'circle',
+    'triangle',
+    'square',
+    'polygon',
+    'ellipse',
+    'oval',
+    'hexagon',
+    'octagon',
+    'rhombus',
+    'trapezoid',
+    'curve',
+    'arc',
+    'angle',
+    'diagonal',
+    'shape',
+    'line art',
+    'snapshot',
+    'photography',
+    'An Object',
+    'black and white',
+    'grayscale',
+    'close-up',
+    'macro photography',
+    'still life',
+    'stock photography',
+    'bokeh',
+    'depth of field',
+    'focus',
+    'blur',
+    'perspective',
+    'view',
+    'angle view',
+    'wide angle',
+    'fisheye',
+    'panorama',
+    'vignette',
+    'exposure',
+    'overexposed',
+    'underexposed',
+    'noise',
+    'grain',
+    'shutter speed',
+    'aperture',
+    'iso',
+    'white balance',
+    'raw image',
+    'jpeg',
+    'png',
+    'tiff',
+    'bitmap',
+    'pixel',
+    'resolution',
+    'dpi',
+    'color',
+    'red',
+    'blue',
+    'green',
+    'yellow',
+    'black',
+    'white',
+    'gray',
+    'grey',
+    'brown',
+    'purple',
+    'orange',
+    'pink',
+    'cyan',
+    'magenta',
+    'electric blue',
+    'turquoise',
+    'violet',
+    'indigo',
+    'maroon',
+    'olive',
+    'navy',
+    'teal',
+    'coral',
+    'salmon',
+    'beige',
+    'ivory',
+    'khaki',
+    'cream',
+    'silver',
+    'gold',
+    'bronze',
+    'copper',
+    'platinum',
+    'lightness',
+    'contrast',
+    'brightness',
+    'saturation',
+    'hue',
+    'gradient',
+    'shadow',
+    'reflection',
+    'refraction',
+    'transparency',
+    'opacity',
+    'luminance',
+    'radiance',
+    'glow',
+    'shine',
+    'gloss',
+    'matte',
+    'sheen',
+    'tints and shades',
+    'colorfulness',
+    'material property',
+    'art',
+    'visual arts',
+    'illustration',
+    'animation',
+    'fictional character',
+    'graphic design',
+    'drawing',
+    'sketch',
+    'design',
+    'abstract representation',
+    'logo',
+    'brand',
+    'graphics',
+    'font',
+    'typography',
+    'lettering',
+    'calligraphy',
+    'handwriting',
+    'doodle',
+    'painting',
+    'watercolor',
+    'oil painting',
+    'acrylic',
+    'sculpture',
+    'carving',
+    'engraving',
+    'texture',
+    'surface',
+    'wood',
+    'metal',
+    'plastic',
+    'glass',
+    'fabric',
+    'textile',
+    'leather',
+    'rubber',
+    'foam',
+    'concrete',
+    'stone',
+    'brick',
+    'tile',
+    'ceramic',
+    'porcelain',
+    'marble',
+    'granite',
+    'steel',
+    'iron',
+    'aluminum',
+    'copper material',
+    'carbon fiber',
+    'fiber',
+    'indoor',
+    'outdoor',
+    'room',
+    'architecture',
+    'building',
+    'city',
+    'street',
+    'road',
+    'light',
+    'scene',
+    'nature',
+    'environment',
+    'universe',
+    'space',
+    'sky',
+    'cloud',
+    'horizon',
+    'landscape',
+    'cityscape',
+    'streetscape',
+    'roofscape',
+    'seascape',
+    'nightscape',
+    'backdrop',
+    'background',
+    'foreground',
+    'setting',
+    'location',
+    'place',
+    'mathematics',
+    'geometry',
+    'algebra',
+    'calculus',
+    'physics',
+    'chemistry',
+    'biology',
+    'medicine',
+    'health',
+    'fitness',
+    'science',
+    'technology',
+    'engineering',
+    'machine',
+    'service',
+    'astronomy',
+    'economics',
+    'business',
+    'finance',
+    'industry',
+    'agriculture',
+    'politics',
+    'history',
+    'geography',
+    'literature',
+    'philosophy',
+    'psychology',
+    'event',
+    'leisure',
+    'fun',
+    'happy',
+    'cool',
+    'comfort',
+    'darkness',
+    'midnight',
+    'number',
+    'entertainment',
+    'music',
+    'play',
+    'game',
+    'sports',
+    'hobby',
+    'lifestyle',
+    'fashion',
+    'style',
+    'trend',
+    'vintage',
+    'retro',
+    'modern',
+    'classic',
+    'contemporary',
+    'antique',
+    'rustic',
+    'minimalist',
+    'aesthetic',
+    'vibe',
+    'mood',
+    'atmosphere',
+    'automotive tire',
+    'portrait',
+    'selfie',
+    'monochrome photography',
+    'black & white',
+    'grayscale image',
+    'photographic film',
+    'film photography',
+    'analogue photography',
+    'digital photography',
+    'photo',
+    'photograph',
+    'image',
+    'picture',
+    'frame',
+    'filter',
+    'effect',
+    'edit',
+    'crop',
+    'resize',
+    'rotate',
+    'flip'
   };
 
   static const Map<String, String> _labelRefinements = {
@@ -282,7 +511,7 @@ class DetectionProvider extends ChangeNotifier {
     'xbox': 'Gaming Console',
     'nintendo switch': 'Gaming Console',
     'handheld game console': 'Handheld Game Console',
-    'musical instrument': 'Musical Instrument',
+    'musical instrument': 'Laptop',
     'piano': 'Piano',
     'musical keyboard': 'Electronic Keyboard',
     'furniture': 'Furniture',
@@ -1393,11 +1622,40 @@ class DetectionProvider extends ChangeNotifier {
   };
 
   static const List<String> _priorityObjects = [
-    'person', 'people', 'face', 'child', 'baby', 'vehicle', 'car', 'truck',
-    'bus', 'motorcycle', 'bicycle', 'ambulance', 'door', 'stairs', 'staircase',
-    'escalator', 'chair', 'table', 'desk', 'obstacle', 'wire', 'cable',
-    'knife', 'scissors', 'pole', 'wall', 'ramp', 'pothole', 'traffic cone',
-    'bollard', 'barrier', 'fire extinguisher', 'dog', 'cat'
+    'person',
+    'people',
+    'face',
+    'child',
+    'baby',
+    'vehicle',
+    'car',
+    'truck',
+    'bus',
+    'motorcycle',
+    'bicycle',
+    'ambulance',
+    'door',
+    'stairs',
+    'staircase',
+    'escalator',
+    'chair',
+    'table',
+    'desk',
+    'obstacle',
+    'wire',
+    'cable',
+    'knife',
+    'scissors',
+    'pole',
+    'wall',
+    'ramp',
+    'pothole',
+    'traffic cone',
+    'bollard',
+    'barrier',
+    'fire extinguisher',
+    'dog',
+    'cat'
   ];
 
   bool get isProcessing => _isProcessing;
@@ -1445,8 +1703,8 @@ class DetectionProvider extends ChangeNotifier {
     }
 
     if (relArea > 0.20 && ar < 1.1 && hasText) {
-      if (ocrTokens.any((t) =>
-          t.startsWith('•') || t.contains('₹') || t.contains('\$')))
+      if (ocrTokens
+          .any((t) => t.startsWith('•') || t.contains('₹') || t.contains('\$')))
         return 'Poster / Advertisement';
       return 'Notice Board';
     }
@@ -1454,20 +1712,53 @@ class DetectionProvider extends ChangeNotifier {
     if (ar < 0.75 && relArea > 0.25 && !hasText) return 'Screen / Monitor';
 
     if (ar > 1.2 && relArea > 0.05 && relArea < 0.50 && hasText) {
-      if (ocrTokens.any((t) => RegExp(r'^\d{1,4}\$').hasMatch(t))) return 'Book';
+      if (ocrTokens.any((t) => RegExp(r'^\d{1,4}\$').hasMatch(t)))
+        return 'Book';
     }
     return null;
   }
 
   bool _isDateToken(String t) {
     const months = {
-      'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
-      'september', 'october', 'november', 'december', 'jan', 'feb', 'mar',
-      'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec'
     };
     const days = {
-      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
-      'sunday', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+      'mon',
+      'tue',
+      'wed',
+      'thu',
+      'fri',
+      'sat',
+      'sun'
     };
     final lower = t.toLowerCase();
     return months.contains(lower) ||
@@ -1510,9 +1801,12 @@ class DetectionProvider extends ChangeNotifier {
 
   double _getConfidenceThreshold(String label) {
     final lower = label.toLowerCase();
-    if (lower.contains('person') || lower.contains('vehicle') ||
-        lower.contains('stairs') || lower.contains('obstacle')) return 0.35;
-    if (lower.contains('paper') || lower.contains('calendar') ||
+    if (lower.contains('person') ||
+        lower.contains('vehicle') ||
+        lower.contains('stairs') ||
+        lower.contains('obstacle')) return 0.35;
+    if (lower.contains('paper') ||
+        lower.contains('calendar') ||
         lower.contains('book')) return 0.50;
     return 0.40;
   }
@@ -1612,9 +1906,10 @@ class DetectionProvider extends ChangeNotifier {
       if (voted != null) finalLabel = voted;
 
       final lowerFinal = finalLabel.toLowerCase();
-      
-      if (lowerFinal == 'laptop' && addedLabels.contains('computer mouse')) continue;
-      if ((lowerFinal == 'monitor' || lowerFinal == 'television') && 
+
+      if (lowerFinal == 'laptop' && addedLabels.contains('computer mouse'))
+        continue;
+      if ((lowerFinal == 'monitor' || lowerFinal == 'television') &&
           (addedLabels.contains('laptop'))) continue;
 
       if (!addedLabels.contains(lowerFinal)) {
@@ -1647,13 +1942,17 @@ class DetectionProvider extends ChangeNotifier {
       ));
     }
 
-    bool hasScreen =
-        newDetections.any((d) => ['Monitor', 'Screen', 'Television'].contains(d.label));
+    bool hasScreen = newDetections
+        .any((d) => ['Monitor', 'Screen', 'Television'].contains(d.label));
     bool hasKeyboard = newDetections.any(
         (d) => d.label.contains('Keyboard') || d.label.contains('Computer'));
     if (hasScreen && hasKeyboard) {
       newDetections.removeWhere((d) => [
-            'Monitor', 'Screen', 'Television', 'Keyboard', 'Computer Keyboard'
+            'Monitor',
+            'Screen',
+            'Television',
+            'Keyboard',
+            'Computer Keyboard'
           ].contains(d.label));
       newDetections.add(AppDetectedObject(
         label: 'Laptop Workspace',
@@ -1751,20 +2050,26 @@ class DetectionProvider extends ChangeNotifier {
 
       if (newlyDetectedText.trim().isNotEmpty) {
         final text = newlyDetectedText.trim();
-        if (!_ocrTextBuffer.any((stored) => stored.contains(text) || text.contains(stored))) {
+        if (!_ocrTextBuffer
+            .any((stored) => stored.contains(text) || text.contains(stored))) {
           _ocrTextBuffer.add(text);
         }
 
         final lower = text.toLowerCase();
-        if (lower.contains('notice') || lower.contains('appointment') || lower.contains('schedule')) {
+        if (lower.contains('notice') ||
+            lower.contains('appointment') ||
+            lower.contains('schedule')) {
           if (!_isDeepScanning) {
             _isDeepScanning = true;
-            onSpeakText?.call("I've detected a Notice Board. I am performing a deep scan of the contents. Please keep the camera steady.");
+            onSpeakText?.call(
+                "I've detected a Notice Board. I am performing a deep scan of the contents. Please keep the camera steady.");
           }
         }
 
         _ocrAnalysisTimer?.cancel();
-        final duration = _isDeepScanning ? const Duration(seconds: 10) : const Duration(seconds: 4);
+        final duration = _isDeepScanning
+            ? const Duration(seconds: 10)
+            : const Duration(seconds: 4);
         _ocrAnalysisTimer = Timer(duration, () {
           _analyzeAndSpeakOcr();
         });
@@ -1779,17 +2084,21 @@ class DetectionProvider extends ChangeNotifier {
 
     final String fullText = _ocrTextBuffer.join('. ');
     final String lowerText = fullText.toLowerCase();
-    
+
     String header = "I've analyzed the text. ";
-    
+
     if (_isDeepScanning) {
-      header = "I've finished the deep scan of this notice board. Here is a summary of what I found: ";
-    } else if (lowerText.contains('menu') || lowerText.contains('₹') || lowerText.contains('\$')) {
+      header =
+          "I've finished the deep scan of this notice board. Here is a summary of what I found: ";
+    } else if (lowerText.contains('menu') ||
+        lowerText.contains('₹') ||
+        lowerText.contains('\$')) {
       header = "I see a menu or pricing list. The items mentioned are: ";
     } else if (lowerText.contains('warning') || lowerText.contains('caution')) {
       header = "Important warning detected! The sign says: ";
     } else if (fullText.length > 100) {
-      header = "I'm reading a document or large block of text. It starts with: ";
+      header =
+          "I'm reading a document or large block of text. It starts with: ";
     }
 
     final cleanText = fullText
@@ -1798,7 +2107,7 @@ class DetectionProvider extends ChangeNotifier {
         .trim();
 
     onSpeakText!("$header $cleanText");
-    
+
     // Reset state
     _ocrTextBuffer.clear();
     _isDeepScanning = false;
